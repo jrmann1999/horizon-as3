@@ -1,0 +1,409 @@
+{
+	"Horizon": {
+		"class": "Tenant",
+		"AppVolume": {
+			"class": "Application",
+			"AppVol_cert": {
+				"class": "Certificate",
+				"certificate": {
+					"bigip": "/Common/default.crt"
+				},
+				"privateKey": {
+					"bigip": "/Common/default.key"
+				}
+			},
+			"AppVol_ServerSSL_Profile": {
+				"class": "TLS_Client",
+				"ciphers": "DEFAULT:!DHE:@STRENGTH"
+			},
+			"AppVol_ClientSSL_Profile": {
+				"class": "TLS_Server",
+				"ciphers": "DEFAULT:!RC4:!MEDIUM:@STRENGTH",
+				"certificates": [
+					{
+						"certificate": "AppVol_cert"
+					}
+				]
+			},
+			"AppVol_HTTP_Profile": {
+				"class": "HTTP_Profile",
+				"rewriteRedirects": "matching",
+				"xForwardedFor": true
+			},
+			"AppVol_Persistence_Profile_Cookie": {
+				"class": "Persist",
+				"persistenceMethod": "cookie"
+			},
+			"AppVol_Persistence_Profile_SrcIP": {
+				"class": "Persist",
+				"persistenceMethod": "source-address",
+				"mirror": true,
+				"matchAcrossVirtualAddresses": false,
+				"matchAcrossVirtualPorts": false
+			},
+			"AppVol_Monitor": {
+				"class": "Monitor",
+				"monitorType": "https",
+				"timeout": 15,
+				"interval": 30,
+				"send": "GET /health_check HTTP/1.1\r\nHost: {FQDN}\r\nConnection: Close\r\n\r\n",
+				"receive": "200 OK"
+			},
+			"AppVol_Pool_443": {
+				"class": "Pool",
+				"loadBalancingMode": "least-connections-member",
+				"monitors": [
+					{
+						"use": "AppVol_Monitor"
+					}
+				],
+				"minimumMonitors": "all",
+				"members": [
+					{
+						"hostname": "Server1",
+						"servicePort": 443,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server1",
+								"address": "192.168.200.20"
+							}
+						]
+					},
+					{
+						"hostname": "Server2",
+						"servicePort": 443,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server2",
+								"address": "192.168.200.21"
+							}
+						]
+					}
+				]
+			},
+			"AppVol_443": {
+				"class": "Service_HTTPS",
+				"persistenceMethods": [
+					{
+						"use": "AppVol_Persistence_Profile_Cookie"
+					}
+				],
+				"pool": "AppVol_Pool_443",
+				"serverTLS": "AppVol_ClientSSL_Profile",
+				"snat": "auto",
+				"virtualAddresses": [
+					"192.168.200.242"
+				],
+				"virtualPort": 443,
+				"profileHTTP": {
+					"use": "AppVol_HTTP_Profile"
+				},
+				"clientTLS": "AppVol_ServerSSL_Profile"
+			}
+		},
+		"Horizon": {
+			"class": "Application",
+			"Horizon_Monitor": {
+				"class": "Monitor",
+				"monitorType": "https",
+				"timeout": 91,
+				"interval": 30,
+				"send": "GET /broker/xml HTTP/1.1\r\nHost: {FQDN}\r\nConnection: Close\r\n\r\n",
+				"receive": "clientlaunch-default"
+			},
+			"UAG_Maintenance": {
+				"class": "Monitor",
+				"monitorType": "https",
+				"timeout": 91,
+				"interval": 30,
+				"send": "GET /favicon.ico HTTP/1.1\r\nHost: {FQDN}\r\nConnection: Close\r\n\r\n",
+				"receive": "200",
+				"receiveDown": "503"
+			},
+			"TCP_PCOIP_Monitor": {
+				"class": "Monitor",
+				"monitorType": "tcp",
+				"timeout": 91,
+				"interval": 30
+			},
+			"UDP_PCOIP_Monitor": {
+				"class": "Monitor",
+				"monitorType": "udp",
+				"timeout": 91,
+				"interval": 30,
+				"send": "default send string"
+			},
+			"Horizon_Pool_443": {
+				"class": "Pool",
+				"loadBalancingMode": "round-robin",
+				"monitors": [
+					{
+						"use": "Horizon_Monitor"
+					}
+				],
+				"minimumMonitors": "all",
+				"members": [
+					{
+						"hostname": "Server1",
+						"servicePort": 443,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server1",
+								"address": "192.168.200.20"
+							}
+						]
+					},
+					{
+						"hostname": "Server2",
+						"servicePort": 443,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server2",
+								"address": "192.168.200.21"
+							}
+						]
+					}
+				]
+			},
+			"Horizon_Pool_8443": {
+				"class": "Pool",
+				"loadBalancingMode": "least-connections-member",
+				"monitors": [
+					{
+						"use": "TCP_PCOIP_Monitor"
+					},
+					{
+						"use": "UDP_PCOIP_Monitor"
+					}
+				],
+				"minimumMonitors": "all",
+				"members": [
+					{
+						"hostname": "Server1",
+						"servicePort": 8443,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server1",
+								"address": "192.168.200.20"
+							}
+						]
+					},
+					{
+						"hostname": "Server2",
+						"servicePort": 8443,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server2",
+								"address": "192.168.200.21"
+							}
+						]
+					}
+				]
+			},
+			"Horizon_Pool_4172": {
+				"class": "Pool",
+				"loadBalancingMode": "least-connections-member",
+				"monitors": [
+					{
+						"use": "TCP_PCOIP_Monitor"
+					},
+					{
+						"use": "UDP_PCOIP_Monitor"
+					}
+				],
+				"minimumMonitors": "all",
+				"members": [
+					{
+						"hostname": "Server1",
+						"servicePort": 4172,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server1",
+								"address": "192.168.200.20"
+							}
+						]
+					},
+					{
+						"hostname": "Server2",
+						"fqdnPrefix": "local",
+						"servicePort": 4172,
+						"shareNodes": false,
+						"servers": [
+							{
+								"name": "Server2",
+								"address": "192.168.200.21"
+							}
+						]
+					}
+				]
+			},
+			"Horizon_HTTP_Profile": {
+				"class": "HTTP_Profile",
+				"rewriteRedirects": "matching",
+				"xForwardedFor": true
+			},
+			"Horizon_UDP_Profile": {
+				"class": "UDP_Profile"
+			},
+			"Horizon_TCP_WAN_Optimized_Profile": {
+				"class": "TCP_Profile",
+				"nagle": "enable"
+			},
+			"Horizon_TCP_LAN_Optimized_Profile": {
+				"class": "TCP_Profile"
+			},
+			"Horizon_Persistence_Profile": {
+				"class": "Persist",
+				"persistenceMethod": "source-address",
+				"mirror": true,
+				"matchAcrossVirtualAddresses": false,
+				"matchAcrossVirtualPorts": true
+			},
+			"Horizon_ServerSSL_Profile": {
+				"class": "TLS_Client",
+				"ciphers": "DEFAULT:!DHE:@STRENGTH"
+			},
+			"Horizon_ClientSSL_Profile": {
+				"class": "TLS_Server",
+				"ciphers": "DEFAULT:!RC4:!MEDIUM:@STRENGTH",
+				"certificates": [
+					{
+						"certificate": "Horizon_cert"
+					}
+				]
+			},
+			"Horizon_cert": {
+				"class": "Certificate",
+				"certificate": {
+					"bigip": "/Common/default.crt"
+				},
+				"privateKey": {
+					"bigip": "/Common/default.key"
+				}
+			},
+			"Horizon_443": {
+				"class": "Service_HTTPS",
+				"persistenceMethods": [
+					{
+						"use": "Horizon_Persistence_Profile"
+					}
+				],
+				"pool": "Horizon_Pool_443",
+				"serverTLS": "Horizon_ClientSSL_Profile",
+				"snat": "auto",
+				"virtualAddresses": [
+					"192.168.200.241"
+				],
+				"virtualPort": 443,
+				"profileHTTP": {
+					"use": "Horizon_HTTP_Profile"
+				},
+				"clientTLS": "Horizon_ServerSSL_Profile",
+				"profileTCP": {
+					"use": "Horizon_TCP_WAN_Optimized_Profile"
+				}
+			},
+			"Horizon_UDP_443": {
+				"class": "Service_UDP",
+				"virtualPort": 443,
+				"virtualAddresses": [
+					"192.168.200.241"
+				],
+				"snat": "auto",
+				"pool": "Horizon_Pool_443",
+				"persistenceMethods": [
+					{
+						"use": "Horizon_Persistence_Profile"
+					}
+				],
+				"profileUDP": {
+					"use": "Horizon_UDP_Profile"
+				}
+			},
+			"Horizon_TCP_8443": {
+				"class": "Service_TCP",
+				"virtualPort": 8443,
+				"virtualAddresses": [
+					"192.168.200.241"
+				],
+				"snat": "auto",
+				"pool": "Horizon_Pool_8443",
+				"persistenceMethods": [
+					{
+						"use": "Horizon_Persistence_Profile"
+					}
+				],
+				"profileTCP": {
+					"use": "Horizon_TCP_WAN_Optimized_Profile"
+				}
+			},
+			"Horizon_UDP_8443": {
+				"class": "Service_UDP",
+				"virtualPort": 8443,
+				"virtualAddresses": [
+					"192.168.200.241"
+				],
+				"snat": "auto",
+				"pool": "Horizon_Pool_8443",
+				"persistenceMethods": [
+					{
+						"use": "Horizon_Persistence_Profile"
+					}
+				],
+				"profileUDP": {
+					"use": "Horizon_UDP_Profile"
+				}
+			},
+			"Horizon_TCP_4172": {
+				"class": "Service_TCP",
+				"virtualPort": 4172,
+				"virtualAddresses": [
+					"192.168.200.241"
+				],
+				"snat": "auto",
+				"pool": "Horizon_Pool_4172",
+				"persistenceMethods": [
+					{
+						"use": "Horizon_Persistence_Profile"
+					}
+				],
+				"profileTCP": {
+					"use": "Horizon_TCP_WAN_Optimized_Profile"
+				}
+			},
+			"Horizon_UDP_4172": {
+				"class": "Service_UDP",
+				"virtualPort": 4172,
+				"virtualAddresses": [
+					"192.168.200.241"
+				],
+				"snat": "auto",
+				"pool": "Horizon_Pool_4172",
+				"persistenceMethods": [
+					{
+						"use": "Horizon_Persistence_Profile"
+					}
+				],
+				"profileUDP": {
+					"use": "Horizon_UDP_Profile"
+				}
+			}
+		}
+	},
+	"class": "ADC",
+	"schemaVersion": "3.0.0",
+	"id": "urn:uuid:33045210-3ab8-4636-9b2a-c98d22ab915d",
+	"label": "Horizon",
+	"remark": "Horizon",
+	"updateMode": "selective",
+	"controls": {
+		"archiveTimestamp": "2022-05-19T16:19:31.034Z"
+	}
+}
